@@ -1,53 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Papa from 'papaparse';
-import { Trash2, X } from 'lucide-react';
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  // --- STATES ---
   const [activeTab, setActiveTab] = useState('student');
-  const [message, setMessage] = useState({ text: '', type: '' });
-  const [loading, setLoading] = useState(false);
-
-  // Forms
-  const [staffForm, setStaffForm] = useState({ user_id: '', password: '' });
-  const [studentForm, setStudentForm] = useState({ user_id: '', password: '', name: '', class_name: 'CSE' });
-  const [hallForm, setHallForm] = useState({ hall_no: '', total_rows: '', total_columns: '' });
-  const [bulkFile, setBulkFile] = useState(null);
-
-  // Data View States
-  const [staffList, setStaffList] = useState([]);
   const [studentList, setStudentList] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [hallList, setHallList] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [bulkFile, setBulkFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ text: '', type: '' });
 
-  // Delete States
-  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  // Accordion State
+  const [expandedDept, setExpandedDept] = useState({});
+  // Checkbox Selection State
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const authConfig = { headers: { Authorization: `Bearer ${token}` } };
+  // Single Add States (Student)
+  const [rollNo, setRollNo] = useState('');
+  const [studentName, setStudentName] = useState('');
+  const [dept, setDept] = useState('IT');
+  const [password, setPassword] = useState('');
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
+  // Single Add States (Staff)
+  const [staffId, setStaffId] = useState('');
+  const [staffName, setStaffName] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
+
+  // Single Add States (Hall)
+  const [hallNo, setHallNo] = useState('');
+  const [totalRows, setTotalRows] = useState('');
+  const [totalColumns, setTotalColumns] = useState('');
+
+  const token = localStorage.getItem('token');
+  const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
   const showMessage = (text, type) => {
     setMessage({ text, type });
     setTimeout(() => setMessage({ text: '', type: '' }), 5000);
   };
 
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
+    setSelectedIds([]); // Tab mathumbothu pazhaiya selections clear aaganum
+    setSearchQuery('');
+  };
+
+  // --- FETCH DATA ---
   const fetchData = async () => {
     try {
+      const timestamp = new Date().getTime(); 
       if (activeTab === 'staff') {
-        const res = await axios.get('http://localhost:5000/api/admin/staff', authConfig);
+        const res = await axios.get(`http://localhost:5000/api/admin/staff?t=${timestamp}`, authConfig);
         setStaffList(res.data);
       } else if (activeTab === 'student') {
-        const res = await axios.get('http://localhost:5000/api/admin/students', authConfig);
+        const res = await axios.get(`http://localhost:5000/api/admin/students?t=${timestamp}`, authConfig);
         setStudentList(res.data);
       } else if (activeTab === 'hall') {
-        const res = await axios.get('http://localhost:5000/api/admin/halls', authConfig);
+        const res = await axios.get(`http://localhost:5000/api/admin/halls?t=${timestamp}`, authConfig);
         setHallList(res.data);
       }
     } catch (err) { console.error("Error fetching data"); }
@@ -55,283 +67,293 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchData();
-    setIsDeleteMode(false);
-    setSelectedIds([]);
   }, [activeTab]);
 
-  // Handle Checkboxes
-  const handleSelectAll = (e, list, idKey) => {
-    if (e.target.checked) setSelectedIds(list.map(item => item[idKey]));
-    else setSelectedIds([]);
+  const toggleDept = (department) => {
+    setExpandedDept(prev => ({ ...prev, [department]: !prev[department] }));
+  };
+
+  // --- CHECKBOX SELECTION LOGIC ---
+  const handleSelectAll = (e, currentList) => {
+    if (e.target.checked) {
+      const ids = currentList.map(item => item.user_id || item.hall_no);
+      setSelectedIds(prev => [...new Set([...prev, ...ids])]); // Prevent duplicates
+    } else {
+      const idsToRemove = currentList.map(item => item.user_id || item.hall_no);
+      setSelectedIds(selectedIds.filter(id => !idsToRemove.includes(id)));
+    }
   };
 
   const handleSelectOne = (e, id) => {
-    if (e.target.checked) setSelectedIds(prev => [...prev, id]);
-    else setSelectedIds(prev => prev.filter(item => item !== id));
+    if (e.target.checked) {
+      setSelectedIds([...selectedIds, id]);
+    } else {
+      setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+    }
   };
 
-  // Bulk Delete
-  const handleDeleteSelected = async () => {
-    if (selectedIds.length === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} record(s)?`)) return;
-
+  // --- ADD SINGLE DATA ---
+  const handleSingleAdd = async (e) => {
+    e.preventDefault();
     try {
-      let endpoint = '';
-      if (activeTab === 'staff') endpoint = 'delete-staff';
-      else if (activeTab === 'student') endpoint = 'delete-students';
-      else if (activeTab === 'hall') endpoint = 'delete-halls';
-
-      await axios.post(`http://localhost:5000/api/admin/${endpoint}`, { ids: selectedIds }, authConfig);
-      showMessage(`Successfully deleted ${selectedIds.length} records.`, 'success');
-      setSelectedIds([]);
-      setIsDeleteMode(false);
+      if (activeTab === 'student') {
+        await axios.post('http://localhost:5000/api/admin/add-student', { user_id: rollNo, name: studentName, class_name: dept, password: password }, authConfig);
+        setRollNo(''); setStudentName(''); setPassword('');
+      } else if (activeTab === 'staff') {
+        await axios.post('http://localhost:5000/api/admin/add-staff', { user_id: staffId, name: staffName, password: staffPassword }, authConfig);
+        setStaffId(''); setStaffName(''); setStaffPassword('');
+      } else if (activeTab === 'hall') {
+        await axios.post('http://localhost:5000/api/admin/add-hall', { hall_no: hallNo, total_rows: totalRows, total_columns: totalColumns }, authConfig);
+        setHallNo(''); setTotalRows(''); setTotalColumns('');
+      }
+      showMessage(`${activeTab.toUpperCase()} added successfully!`, "success");
       fetchData();
     } catch (err) {
-      alert("Error deleting records.");
+      showMessage(err.response?.data?.message || `Error adding ${activeTab}`, "error");
     }
   };
 
-  // Add Data Handlers
-  const handleAddStaff = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post('http://localhost:5000/api/admin/add-staff', staffForm, authConfig);
-      showMessage(res.data.message, 'success');
-      setStaffForm({ user_id: '', password: '' });
-      fetchData();
-    } catch (err) { 
-      // Ithu actual MySQL error-ai unga screen-la red box-la kaatum!
-      showMessage(err.response?.data?.error || err.response?.data?.message || 'Error', 'error'); 
-    }
-  };
-
-  const handleAddStudent = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post('http://localhost:5000/api/admin/add-student', studentForm, authConfig);
-      showMessage(res.data.message, 'success');
-      setStudentForm({ user_id: '', password: '', name: '', class_name: 'CSE' });
-      fetchData();
-    } catch (err) { showMessage(err.response?.data?.message || 'Error', 'error'); }
-  };
-
-  const handleAddHall = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post('http://localhost:5000/api/admin/add-hall', hallForm, authConfig);
-      showMessage(res.data.message, 'success');
-      setHallForm({ hall_no: '', total_rows: '', total_columns: '' });
-      fetchData();
-    } catch (err) { showMessage(err.response?.data?.message || 'Error', 'error'); }
-  };
-
+  // --- BULK UPLOAD ---
   const handleBulkUpload = (e, type) => {
     e.preventDefault();
     if (!bulkFile) return showMessage("Please select a CSV file.", "error");
-    setLoading(true);
 
+    setLoading(true);
     Papa.parse(bulkFile, {
-      header: true,
-      skipEmptyLines: true,
+      header: true, skipEmptyLines: true,
+      transformHeader: function(header) { return header.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase(); },
       complete: async (results) => {
-        let successCount = 0; let errorCount = 0;
-        const url = type === 'student' ? 'http://localhost:5000/api/admin/add-student' : 'http://localhost:5000/api/admin/add-staff';
-        for (let row of results.data) {
-          try { await axios.post(url, row, authConfig); successCount++; } 
-          catch (err) { errorCount++; }
+        try {
+          let finalData = [];
+          for (let row of results.data) {
+            if (type === 'student' && row.rollno) {
+              finalData.push({ user_id: row.rollno, name: row.name, class_name: row.department, password: row.password });
+            } else if (type === 'staff' && (row.staff_id || row.staffid)) {
+              finalData.push({ user_id: row.staff_id || row.staffid, name: row.staff_name || row.staffname, password: row.password });
+            }
+          }
+          if (finalData.length === 0) {
+            setLoading(false); return showMessage("No valid data found.", "error");
+          }
+
+          const url = type === 'student' ? 'http://localhost:5000/api/admin/bulk-students' : 'http://localhost:5000/api/admin/bulk-staff';
+          const res = await axios.post(url, { data: finalData }, authConfig);
+          showMessage(res.data.message, 'success');
+        } catch (err) {
+          showMessage("Server error during upload.", 'error');
+        } finally {
+          setLoading(false); setBulkFile(null);
+          document.getElementById(`csvInput-${type}`).value = "";
+          fetchData(); 
         }
-        showMessage(`Import Complete: ${successCount} added, ${errorCount} failed.`, 'success');
-        setLoading(false); setBulkFile(null);
-        document.getElementById(`csvInput-${type}`).value = "";
-        fetchData();
       }
     });
   };
 
-  const TabButton = ({ id, label }) => (
-    <button onClick={() => { setActiveTab(id); setMessage({text: '', type: ''}); }}
-      className={`px-4 py-2 font-mono text-sm uppercase tracking-widest transition-all ${activeTab === id ? 'text-accent border-b-2 border-accent' : 'text-gray-500 hover:text-gray-300'}`}>
-      {label}
-    </button>
-  );
+  // --- BULK DELETE LOGIC ---
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return showMessage("Please select checkboxes to delete.", "error");
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} records?`)) return;
+
+    const url = activeTab === 'student' ? 'http://localhost:5000/api/admin/delete-students' : 
+                activeTab === 'staff' ? 'http://localhost:5000/api/admin/delete-staff' : 
+                'http://localhost:5000/api/admin/delete-halls';
+    try {
+       await axios.post(url, { ids: selectedIds }, authConfig);
+       showMessage(`Deleted ${selectedIds.length} records successfully.`, "success");
+       setSelectedIds([]); // Clear selection after delete
+       fetchData();
+    } catch(err) {
+       showMessage("Delete failed", "error");
+    }
+  };
+
+  const getFilteredData = () => {
+    const q = searchQuery.toLowerCase();
+    if (activeTab === 'student') return studentList.filter(s => (s.user_id?.toLowerCase().includes(q)) || (s.name?.toLowerCase().includes(q)) || (s.class_name?.toLowerCase().includes(q)));
+    if (activeTab === 'staff') return staffList.filter(s => (s.user_id?.toLowerCase().includes(q)) || (s.name?.toLowerCase().includes(q)));
+    if (activeTab === 'hall') return hallList.filter(h => h.hall_no?.toString().toLowerCase().includes(q));
+    return [];
+  };
 
   return (
-    <div className="min-h-screen bg-base text-gray-200">
-      <nav className="bg-panel border-b border-gray-800 px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-black uppercase tracking-widest text-white">Admin<span className="text-accent">Portal</span></h1>
-        <button onClick={handleLogout} className="px-4 py-2 text-xs font-bold uppercase text-alert border border-alert rounded-sm hover:bg-alert hover:text-black">Logout</button>
-      </nav>
+    <div className="min-h-screen bg-[#0a0a0a] text-gray-300 p-6 font-mono">
+      
+      {/* HEADER & TABS */}
+      <div className="mb-8 border-b border-gray-800 pb-4">
+        <h1 className="text-2xl font-bold text-[#00ffcc] mb-6 tracking-widest">EXAM MANAGEMENT ADMIN</h1>
+        <div className="flex gap-8">
+          {['student', 'staff', 'hall'].map((tab) => (
+            <button key={tab} onClick={() => handleTabSwitch(tab)} className={`pb-2 uppercase tracking-widest font-bold text-sm transition-colors ${activeTab === tab ? 'text-[#00ffcc] border-b-2 border-[#00ffcc]' : 'text-gray-500 hover:text-gray-300'}`}>
+              {tab === 'hall' ? 'Exam Halls' : `${tab}s`}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="max-w-6xl mx-auto mt-10 p-6">
-        {message.text && (
-          <div className={`mb-6 p-4 text-sm font-mono border rounded-sm ${message.type === 'success' ? 'bg-teal-900/20 text-accent border-accent' : 'bg-red-900/20 text-alert border-alert'}`}>
-            [ SYSTEM ] : {message.text}
+      {message.text && (
+        <div className={`mb-4 p-4 font-bold border ${message.type === 'success' ? 'border-[#00ffcc] text-[#00ffcc] bg-[#00ffcc]/10' : 'border-red-500 text-red-500 bg-red-500/10'}`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-8">
+        
+        {/* LEFT PANEL - FORMS */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-6">
+          <div className="bg-[#121212] p-6 border border-gray-800">
+            <h2 className="text-[#00ffcc] font-bold mb-6 tracking-widest uppercase">ADD {activeTab}</h2>
+            
+            {/* STUDENT FORM */}
+            {activeTab === 'student' && (
+              <form onSubmit={handleSingleAdd} className="flex flex-col gap-4">
+                <input type="text" placeholder="Roll No" value={rollNo} onChange={e => setRollNo(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <input type="text" placeholder="Student Name" value={studentName} onChange={e => setStudentName(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <select value={dept} onChange={e => setDept(e.target.value)} className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none">
+                  <option value="IT" className="bg-black">IT</option><option value="CSE" className="bg-black">CSE</option>
+                </select>
+                <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <button type="submit" className="mt-2 bg-[#00ffcc] text-black font-bold p-3 uppercase hover:bg-[#00ccaa]">REGISTER</button>
+              </form>
+            )}
+
+            {/* STAFF FORM */}
+            {activeTab === 'staff' && (
+              <form onSubmit={handleSingleAdd} className="flex flex-col gap-4">
+                <input type="text" placeholder="Staff ID" value={staffId} onChange={e => setStaffId(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <input type="text" placeholder="Staff Name" value={staffName} onChange={e => setStaffName(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <input type="password" placeholder="Password" value={staffPassword} onChange={e => setStaffPassword(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <button type="submit" className="mt-2 bg-[#00ffcc] text-black font-bold p-3 uppercase hover:bg-[#00ccaa]">ADD STAFF</button>
+              </form>
+            )}
+
+            {/* HALL FORM */}
+            {activeTab === 'hall' && (
+              <form onSubmit={handleSingleAdd} className="flex flex-col gap-4">
+                <input type="text" placeholder="Hall No (e.g. 101)" value={hallNo} onChange={e => setHallNo(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <input type="number" placeholder="Total Rows" value={totalRows} onChange={e => setTotalRows(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <input type="number" placeholder="Total Columns" value={totalColumns} onChange={e => setTotalColumns(e.target.value)} required className="bg-transparent border border-gray-700 p-3 text-white focus:border-[#00ffcc] outline-none" />
+                <button type="submit" className="mt-2 bg-[#00ffcc] text-black font-bold p-3 uppercase hover:bg-[#00ccaa]">ADD HALL</button>
+              </form>
+            )}
           </div>
-        )}
 
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-gray-800 pb-2">
-          <TabButton id="student" label="Students" />
-          <TabButton id="staff" label="Staff" />
-          <TabButton id="hall" label="Exam Halls" />
+          {/* BULK UPLOAD (Only for Student & Staff) */}
+          {(activeTab === 'student' || activeTab === 'staff') && (
+             <div className="bg-[#121212] p-6 border border-gray-800">
+                <h2 className="text-[#00ffcc] font-bold mb-4 tracking-widest">BULK IMPORT</h2>
+                <form onSubmit={(e) => handleBulkUpload(e, activeTab)} className="flex flex-col gap-4">
+                  <input type="file" id={`csvInput-${activeTab}`} accept=".csv" onChange={(e) => setBulkFile(e.target.files[0])} className="text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-[#1a1a1a] file:text-[#00ffcc] hover:file:bg-[#222]" />
+                  <button type="submit" disabled={loading} className="mt-2 bg-[#1a1a1a] border border-gray-700 text-white font-bold p-3 uppercase hover:border-[#00ffcc]">{loading ? 'UPLOADING...' : 'UPLOAD CSV'}</button>
+                </form>
+             </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* LEFT COLUMN: FORMS */}
-          <div className="lg:col-span-1 space-y-8">
-            
-            {activeTab === 'student' && (
-              <>
-                <div className="bg-panel p-6 border border-gray-800 shadow-xl">
-                  <h3 className="text-sm font-bold text-accent uppercase mb-4 border-b border-gray-700 pb-2">Add Student</h3>
-                  <form onSubmit={handleAddStudent} className="space-y-4">
-                    <input type="text" required value={studentForm.user_id} onChange={e => setStudentForm({...studentForm, user_id: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Roll No (e.g. 21CS001)" />
-                    <input type="text" required value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Full Name" />
-                    <select value={studentForm.class_name} onChange={e => setStudentForm({...studentForm, class_name: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm">
-                      <option value="CSE">CSE</option><option value="IT">IT</option><option value="ECE">ECE</option><option value="EEE">EEE</option><option value="MECH">MECH</option>
-                    </select>
-                    <input type="password" required value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Password" />
-                    <button type="submit" className="w-full py-3 bg-accent text-black font-bold uppercase text-xs hover:bg-teal-400">Register</button>
-                  </form>
-                </div>
-                <div className="bg-panel p-6 border border-gray-800">
-                  <h3 className="text-sm font-bold text-accent uppercase mb-4 border-b border-gray-700 pb-2">Bulk Import Students</h3>
-                  <form onSubmit={e => handleBulkUpload(e, 'student')} className="space-y-4">
-                    <p className="text-[10px] text-gray-500 font-mono">CSV: user_id, name, class_name, password</p>
-                    <input id="csvInput-student" type="file" accept=".csv" required onChange={e => setBulkFile(e.target.files[0])} className="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:px-3 file:py-1 file:mr-3" />
-                    <button type="submit" disabled={loading} className="w-full py-2 bg-gray-800 text-white text-xs font-bold uppercase hover:bg-gray-700">Upload CSV</button>
-                  </form>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'staff' && (
-              <>
-                <div className="bg-panel p-6 border border-gray-800 shadow-xl">
-                  <h3 className="text-sm font-bold text-accent uppercase mb-4 border-b border-gray-700 pb-2">Add Staff</h3>
-                  <form onSubmit={handleAddStaff} className="space-y-4">
-                    <input type="text" required value={staffForm.user_id} onChange={e => setStaffForm({...staffForm, user_id: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Staff ID" />
-                    <input type="password" required value={staffForm.password} onChange={e => setStaffForm({...staffForm, password: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Password" />
-                    <button type="submit" className="w-full py-3 bg-accent text-black font-bold uppercase text-xs hover:bg-teal-400">Register</button>
-                  </form>
-                </div>
-                <div className="bg-panel p-6 border border-gray-800">
-                  <h3 className="text-sm font-bold text-accent uppercase mb-4 border-b border-gray-700 pb-2">Bulk Import Staff</h3>
-                  <form onSubmit={e => handleBulkUpload(e, 'staff')} className="space-y-4">
-                    <p className="text-[10px] text-gray-500 font-mono">CSV: user_id, password</p>
-                    <input id="csvInput-staff" type="file" accept=".csv" required onChange={e => setBulkFile(e.target.files[0])} className="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:px-3 file:py-1 file:mr-3" />
-                    <button type="submit" disabled={loading} className="w-full py-2 bg-gray-800 text-white text-xs font-bold uppercase hover:bg-gray-700">Upload CSV</button>
-                  </form>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'hall' && (
-              <div className="bg-panel p-6 border border-gray-800 shadow-xl">
-                <h3 className="text-sm font-bold text-accent uppercase mb-4 border-b border-gray-700 pb-2">Add Exam Hall</h3>
-                <form onSubmit={handleAddHall} className="space-y-4">
-                  <input type="text" required value={hallForm.hall_no} onChange={e => setHallForm({...hallForm, hall_no: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Hall No (e.g. 101)" />
-                  <div className="flex gap-4">
-                    <input type="number" min="1" required value={hallForm.total_rows} onChange={e => setHallForm({...hallForm, total_rows: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Rows" />
-                    <input type="number" min="1" required value={hallForm.total_columns} onChange={e => setHallForm({...hallForm, total_columns: e.target.value})} className="w-full p-2 bg-base border border-gray-700 font-mono text-sm" placeholder="Cols" />
-                  </div>
-                  <button type="submit" className="w-full py-3 bg-accent text-black font-bold uppercase text-xs hover:bg-teal-400">Register Hall</button>
-                </form>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT COLUMN: DATA TABLES WITH DELETE FEATURE */}
-          <div className="lg:col-span-2">
-            <div className="bg-panel p-6 border border-gray-800 h-full max-h-[800px] overflow-y-auto">
-              
-              <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-white uppercase tracking-widest">
-                    {activeTab === 'student' ? 'Students' : activeTab === 'staff' ? 'Staff' : 'Halls'}
-                  </h3>
-                  <span className="text-xs font-mono text-accent bg-teal-900/30 px-2 py-1 border border-accent">Total: {activeTab === 'student' ? studentList.length : activeTab === 'staff' ? staffList.length : hallList.length}</span>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  {isDeleteMode ? (
-                    <div className="flex items-center gap-2">
-                      <button onClick={handleDeleteSelected} disabled={selectedIds.length === 0} className="bg-alert px-4 py-1 text-black font-bold text-[10px] uppercase rounded-sm disabled:opacity-30">Delete Selected ({selectedIds.length})</button>
-                      <button onClick={() => {setIsDeleteMode(false); setSelectedIds([]);}} className="text-gray-500 hover:text-white"><X size={18}/></button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setIsDeleteMode(true)} className="text-gray-500 hover:text-alert transition-all" title="Delete Records"><Trash2 size={20}/></button>
-                  )}
-                </div>
-              </div>
-
-              {activeTab === 'student' && (
-                <table className="w-full text-left font-mono text-sm border-collapse">
-                  <thead>
-                    <tr className="text-xs text-gray-500 uppercase border-b border-gray-800">
-                      {isDeleteMode && <th className="py-2 px-2 w-10"><input type="checkbox" onChange={(e) => handleSelectAll(e, studentList, 'user_id')} checked={selectedIds.length > 0 && selectedIds.length === studentList.length} /></th>}
-                      <th className="py-2 px-2">Roll No</th>
-                      <th className="py-2 px-2">Name</th>
-                      <th className="py-2 px-2">Class</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {studentList.map(student => (
-                      <tr key={student.user_id} className={`border-b border-gray-800 hover:bg-base ${selectedIds.includes(student.user_id) ? 'bg-base' : ''}`}>
-                        {isDeleteMode && <td className="py-3 px-2"><input type="checkbox" checked={selectedIds.includes(student.user_id)} onChange={e => handleSelectOne(e, student.user_id)} /></td>}
-                        <td className="py-3 px-2 text-accent">{student.user_id}</td>
-                        <td className="py-3 px-2 text-gray-300">{student.name}</td>
-                        <td className="py-3 px-2 text-gray-500">{student.class_name}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        {/* RIGHT PANEL - LIST VIEW */}
+        <div className="w-full lg:w-2/3 bg-[#121212] p-6 border border-gray-800">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-bold text-white tracking-widest uppercase">{activeTab}S</h2>
+              <span className="border border-[#00ffcc] text-[#00ffcc] px-2 py-1 text-xs font-bold">
+                Selected: {selectedIds.length}
+              </span>
+              {/* DELETE SELECTED BUTTON */}
+              {selectedIds.length > 0 && (
+                <button onClick={handleBulkDelete} className="bg-red-500/20 text-red-500 border border-red-500 px-3 py-1 text-sm font-bold hover:bg-red-500 hover:text-black transition-colors">
+                  DELETE SELECTED
+                </button>
               )}
-
-              {activeTab === 'staff' && (
-                <table className="w-full text-left font-mono text-sm border-collapse">
-                  <thead>
-                    <tr className="text-xs text-gray-500 uppercase border-b border-gray-800">
-                      {isDeleteMode && <th className="py-2 px-2 w-10"><input type="checkbox" onChange={(e) => handleSelectAll(e, staffList, 'user_id')} checked={selectedIds.length > 0 && selectedIds.length === staffList.length} /></th>}
-                      <th className="py-2 px-2">Staff ID</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {staffList.map(staff => (
-                      <tr key={staff.user_id} className={`border-b border-gray-800 hover:bg-base ${selectedIds.includes(staff.user_id) ? 'bg-base' : ''}`}>
-                        {isDeleteMode && <td className="py-3 px-2"><input type="checkbox" checked={selectedIds.includes(staff.user_id)} onChange={e => handleSelectOne(e, staff.user_id)} /></td>}
-                        <td className="py-3 px-2 text-accent">{staff.user_id}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              {activeTab === 'hall' && (
-                <table className="w-full text-left font-mono text-sm border-collapse">
-                  <thead>
-                    <tr className="text-xs text-gray-500 uppercase border-b border-gray-800">
-                      {isDeleteMode && <th className="py-2 px-2 w-10"><input type="checkbox" onChange={(e) => handleSelectAll(e, hallList, 'hall_no')} checked={selectedIds.length > 0 && selectedIds.length === hallList.length} /></th>}
-                      <th className="py-2 px-2">Hall No</th>
-                      <th className="py-2 px-2">Grid (Row x Col)</th>
-                      <th className="py-2 px-2 text-right">Capacity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hallList.map(hall => (
-                      <tr key={hall.hall_no} className={`border-b border-gray-800 hover:bg-base ${selectedIds.includes(hall.hall_no) ? 'bg-base' : ''}`}>
-                        {isDeleteMode && <td className="py-3 px-2"><input type="checkbox" checked={selectedIds.includes(hall.hall_no)} onChange={e => handleSelectOne(e, hall.hall_no)} /></td>}
-                        <td className="py-3 px-2 text-accent font-bold">Hall {hall.hall_no}</td>
-                        <td className="py-3 px-2 text-gray-400">{hall.total_rows} x {hall.total_columns}</td>
-                        <td className="py-3 px-2 text-white text-right">{hall.total_rows * hall.total_columns}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
+            </div>
+            <div className="w-1/3">
+               <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-transparent border border-gray-700 p-2 text-white focus:border-[#00ffcc] outline-none" />
             </div>
           </div>
+
+          {/* STUDENTS ACCORDION TAB WITH CHECKBOXES */}
+          {activeTab === 'student' && (
+            <div className="overflow-x-auto">
+              {(() => {
+                const students = getFilteredData();
+                const grouped = students.reduce((acc, s) => {
+                  const d = s.class_name || 'Unknown';
+                  if (!acc[d]) acc[d] = [];
+                  acc[d].push(s); return acc;
+                }, {});
+
+                if (Object.keys(grouped).length === 0) return <p className="text-gray-500">No students found.</p>;
+
+                return Object.keys(grouped).map(deptKey => (
+                  <div key={deptKey} className="mb-4 border border-gray-800 bg-[#0a0a0a]">
+                    <button onClick={() => toggleDept(deptKey)} className="w-full p-4 flex justify-between items-center bg-[#151515] hover:bg-[#1a1a1a] text-[#00ffcc] border-b border-gray-800">
+                      <span className="text-lg font-bold tracking-widest">{expandedDept[deptKey] ? '▼' : '▶'} {deptKey} LIST</span>
+                      <span className="bg-[#00ffcc] text-black px-3 py-1 text-sm font-bold">{grouped[deptKey].length}</span>
+                    </button>
+
+                    {expandedDept[deptKey] && (
+                      <div className="p-4">
+                        <table className="w-full text-left text-gray-300 text-sm">
+                          <thead className="text-xs uppercase text-gray-500 border-b border-gray-800">
+                            <tr>
+                              <th className="px-4 py-3">
+                                <input type="checkbox" onChange={(e) => handleSelectAll(e, grouped[deptKey])} className="accent-[#00ffcc]" />
+                              </th>
+                              <th className="px-4 py-3">Roll No</th>
+                              <th className="px-4 py-3">Name</th>
+                              <th className="px-4 py-3">Dept</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {grouped[deptKey].map(student => (
+                              <tr key={student.user_id} className="border-b border-gray-800/50 hover:bg-[#1a1a1a]">
+                                <td className="px-4 py-3">
+                                  <input type="checkbox" checked={selectedIds.includes(student.user_id)} onChange={(e) => handleSelectOne(e, student.user_id)} className="accent-[#00ffcc]" />
+                                </td>
+                                <td className="px-4 py-3 text-[#00ffcc] font-bold">{student.user_id}</td>
+                                <td className="px-4 py-3">{student.name}</td>
+                                <td className="px-4 py-3">{student.class_name}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+
+          {/* STAFF & HALL TABS WITH CHECKBOXES */}
+          {(activeTab === 'staff' || activeTab === 'hall') && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-gray-300 text-sm">
+                <thead className="text-xs uppercase text-gray-500 border-b border-gray-800">
+                  <tr>
+                    <th className="px-4 py-3">
+                      <input type="checkbox" onChange={(e) => handleSelectAll(e, getFilteredData())} className="accent-[#00ffcc]" />
+                    </th>
+                    <th className="px-4 py-3">{activeTab === 'staff' ? 'Staff ID' : 'Hall No'}</th>
+                    <th className="px-4 py-3">{activeTab === 'staff' ? 'Name' : 'Capacity'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getFilteredData().map(item => {
+                    const id = activeTab === 'staff' ? item.user_id : item.hall_no;
+                    return (
+                      <tr key={id} className="border-b border-gray-800/50 hover:bg-[#1a1a1a]">
+                        <td className="px-4 py-3">
+                          <input type="checkbox" checked={selectedIds.includes(id)} onChange={(e) => handleSelectOne(e, id)} className="accent-[#00ffcc]" />
+                        </td>
+                        <td className="px-4 py-3 text-[#00ffcc] font-bold">{id}</td>
+                        <td className="px-4 py-3">{activeTab === 'staff' ? item.name : `${item.total_rows * item.total_columns} Seats`}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
         </div>
       </div>
