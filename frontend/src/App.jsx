@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import StudentDashboard from './pages/Student/StudentDashboard';
 
 // 1. Importing the actual functional pages
 import Login from './pages/Login';
@@ -18,7 +19,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/staff" element={<StaffDashboard />} /> {/* Now pointing to the real file */}
-          <Route path="/student" element={<StudentPortal />} />
+          <Route path="/student" element={<StudentDashboard />} />
         </Routes>
       </div>
     </Router>

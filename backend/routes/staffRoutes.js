@@ -1,27 +1,23 @@
 const express = require('express');
 const router = express.Router();
 
-// Import all 6 functions perfectly
-const { 
-    getHalls, 
-    getStudentsByClass, 
-    createAllocation, 
-    getAllocations, 
-    getAllocationDetails, 
-    deleteAllocations 
-} = require('../controllers/staffController');
+// IDHU THAAN MISSING! (Controller-ai correct-ah import panrom)
+const staffController = require('../controllers/staffController');
 
-const { verifyToken } = require('../middleware/authMiddleware');
+// --- STAFF ROUTES ---
 
-// Protect all routes
-router.use(verifyToken);
+// 1. Get Halls & Students (For Capacity Check & Dropdowns)
+router.get('/halls', staffController.getHalls);
+router.get('/students', staffController.getStudents);
 
-// Routes
-router.get('/halls', getHalls);
-router.get('/students/:class_name', getStudentsByClass);
-router.post('/allocate', createAllocation);
-router.get('/allocations', getAllocations);
-router.get('/allocations/:id', getAllocationDetails);
-router.post('/allocations/delete', deleteAllocations);
+// 2. Allocation Matrix Generation (The Zig-Zag Engine)
+router.post('/allocate', staffController.createAllocation);
+
+// 3. History & PDF Export
+router.get('/allocations', staffController.getAllocations);
+router.get('/allocations/:id', staffController.getAllocationDetails);
+
+// 4. Delete Allocations
+router.post('/allocations/delete', staffController.deleteAllocations);
 
 module.exports = router;

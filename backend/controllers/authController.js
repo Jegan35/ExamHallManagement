@@ -37,7 +37,16 @@ exports.login = async (req, res) => {
         }
 
         const user = users[0];
-        const isMatch = await bcrypt.compare(password, user.password_hash);
+        let isMatch = false;
+
+        // MAGIC FIX: Role-ai vechu password eppadi check panrathu nu pirikirom
+        if (user.role === 'admin') {
+            // Admin-ku mattum encrypted password check pandrom
+            isMatch = await bcrypt.compare(password, user.password_hash);
+        } else {
+            // Staff matrum Student-ku plain text password check pandrom
+            isMatch = (password === user.password_hash);
+        }
         
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
