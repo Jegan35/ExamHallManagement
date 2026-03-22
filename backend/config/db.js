@@ -11,7 +11,6 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
-
 // Convert pool to use promises so we can use async/await
 const db = pool.promise();
 
