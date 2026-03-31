@@ -2,8 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import StudentDashboard from './pages/Student/StudentDashboard';
 
-
-
 // 1. Importing the actual functional pages
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
