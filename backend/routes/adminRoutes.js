@@ -31,6 +31,8 @@ router.put('/update-student/:id', updateStudent);
 router.put('/update-staff/:id', updateStaff);
 router.put('/update-hall/:id', updateHall);
 
+
+
 // Delete
 router.post('/delete-staff', deleteStaff);
 router.post('/delete-students', deleteStudents);
