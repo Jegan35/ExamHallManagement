@@ -9,7 +9,6 @@ const {
 } = require('../controllers/adminController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
-
 router.use(verifyToken, isAdmin);
 
 // Single Add
