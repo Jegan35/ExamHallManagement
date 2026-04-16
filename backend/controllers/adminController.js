@@ -17,6 +17,7 @@ const addStaff = async (req, res) => {
         res.status(500).json({ message: 'Error adding staff', error: error.message });
     }
 };
+
 const addStudent = async (req, res) => {
     const { user_id, name, class_name, password } = req.body;
     try {
