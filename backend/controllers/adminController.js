@@ -1,7 +1,4 @@
 const db = require('../config/db');
-
-
-
 // --- ADD DATA (Single) ---
 const addStaff = async (req, res) => {
     const { user_id, name, password } = req.body;
