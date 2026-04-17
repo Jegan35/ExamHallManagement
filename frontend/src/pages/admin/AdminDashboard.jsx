@@ -3,7 +3,6 @@ import axios from 'axios';
 import Papa from 'papaparse';
 import { Trash2, X, Edit } from 'lucide-react';
 
-
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('student');
   const [studentList, setStudentList] = useState([]);
