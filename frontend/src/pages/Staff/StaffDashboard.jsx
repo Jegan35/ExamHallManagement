@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Trash2, X, FileText, Eye, Search } from 'lucide-react';
 
+
 const StaffDashboard = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
