@@ -6,6 +6,7 @@ const staffController = require('../controllers/staffController');
 
 // --- STAFF ROUTES ---
 
+
 // 1. Get Halls & Students (For Capacity Check & Dropdowns)
 router.get('/halls', staffController.getHalls);
 router.get('/students', staffController.getStudents);
