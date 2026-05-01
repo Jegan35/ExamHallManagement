@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = 'examhall_super_secret_key_2026';
 
-
 // Verifies if the user is logged in
 exports.verifyToken = (req, res, next) => {
     const token = req.headers['authorization'];
