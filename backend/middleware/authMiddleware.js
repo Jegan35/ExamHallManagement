@@ -16,7 +16,6 @@ exports.verifyToken = (req, res, next) => {
     });
 };
 
-
 // Verifies if the logged-in user is an Admin
 exports.isAdmin = (req, res, next) => {
     if (req.user.role !== 'admin') {
